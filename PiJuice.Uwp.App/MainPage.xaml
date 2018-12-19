@@ -1,0 +1,44 @@
+﻿<Page
+    x:Class="PiJuice.Uwp.App.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:PiJuice.Uwp.App"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Grid>
+
+        <TextBlock Text="PiJuice on Windows IoT Core" FontSize="40" HorizontalAlignment="Center" />
+
+        <Grid Height="150" Width="550" >
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="150" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="30" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Column="0" Grid.Row="0" Text="Battery:" />
+            <TextBlock Grid.Column="1" Grid.Row="0" Text="{Binding Path=BatteryText, Mode=OneWay}" />
+
+            <TextBlock Grid.Column="0" Grid.Row="1" Text="GPIO Power Input:" />
+            <TextBlock Grid.Column="1" Grid.Row="1" Text="{Binding Path=PowerInputGpioText, Mode=OneWay}" />
+
+            <TextBlock Grid.Column="0" Grid.Row="2" Text="USB Power Input:" />
+            <TextBlock Grid.Column="1" Grid.Row="2" Text="{Binding Path=PowerInputUsbText, Mode=OneWay}" />
+
+            <TextBlock Grid.Column="0" Grid.Row="3" Text="Fault:" />
+            <TextBlock Grid.Column="1" Grid.Row="3" Text="{Binding Path=FaultText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
+
+        </Grid>
+
+
+    </Grid>
+</Page>
