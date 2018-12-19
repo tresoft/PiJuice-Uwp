@@ -7,6 +7,7 @@ using Windows.Devices.Enumeration;
 using Windows.Devices.I2c;
 using PiJuice.Uwp.Core.Status;
 using System.Threading;
+using PiJuice.Uwp.Core.Power;
 
 /// <summary>
 /// Contains function for interface handling. Ported to C# in December 2018 from Stephan Trautvetter (st@trefon.de).
@@ -63,7 +64,19 @@ namespace PiJuice.Uwp.Core.Interface
             return _Device != null;
         }
 
+        #region reading data
+
         public async Task<PiJuiceInterfaceResult> ReadData(PiJuiceStatusCommands cmd, byte lenght)
+        {
+            return await ReadData((byte), lenght);
+        }
+
+        public async Task<PiJuiceInterfaceResult> ReadData(PiJuicePowerCommands cmd, byte lenght)
+        {
+            return await ReadData((byte), lenght);
+        }
+
+        public async Task<PiJuiceInterfaceResult> ReadData(byte cmd, byte lenght)
         {
             PiJuiceInterfaceResult result = new PiJuiceInterfaceResult();
             int RetryCounter = 3;
@@ -87,20 +100,10 @@ namespace PiJuice.Uwp.Core.Interface
                     // send request and read response
                     lock (_DeviceLock)
                     {
-                        //// write and read
-                        //var res = _Device.WriteReadPartial(result.Request, result.Response);
-                        //if (res.Status == I2cTransferStatus.FullTransfer)
-                        //{
-                        //    // finish
-                        //    result.Success = true;
-                        //    return result;
-                        //}
-
                         // write
                         _Device.Write(result.Request);
-
+                        // wait to minimize errors
                         Thread.Sleep(1);
-
                         // read
                         _Device.Read(result.Response);
                         // calc checksum
@@ -131,6 +134,55 @@ namespace PiJuice.Uwp.Core.Interface
                 result.Delay = DateTime.Now - StartTime;
             }
         }
+
+        #endregion
+
+        #region writing data
+
+        public async Task<PiJuiceInterfaceResult> WriteData(byte cmd, byte[] data)
+        {
+            PiJuiceInterfaceResult result = new PiJuiceInterfaceResult();
+            var StartTime = DateTime.Now;
+
+            try
+            {
+                // init  device
+                var dok = await InitAsync();
+                if (!dok)
+                    throw new Exception("Device initialisation error");
+
+                // create request
+
+                var buffer = new byte[data.Length + 2];
+                Array.Copy(data, 0, buffer, 1, data.Length);
+                buffer[0] = cmd;
+                buffer[buffer.Length - 1] = GetCheckSum(data);
+                result.Request = buffer.ToArray();
+
+                // send request and read response
+                lock (_DeviceLock)
+                {
+                    // write
+                    _Device.Write(result.Request);
+                    // finish
+                    result.Success = true;
+                    return result;
+                }
+
+            }
+            catch (Exception ex)
+            {
+                result.LastException = ex;
+                result.Success = false;
+                return result;
+            }
+            finally
+            {
+                result.Delay = DateTime.Now - StartTime;
+            }
+        }
+
+        #region
 
         private byte GetCheckSum(byte[] data)
         {
