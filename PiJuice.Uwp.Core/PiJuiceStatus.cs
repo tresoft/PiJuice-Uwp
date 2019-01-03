@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using PiJuice.Uwp.Core.Interface;
 
 /// <summary>
-/// Contains function for status handling. Ported to C# in December 2018 from Stephan Trautvetter (st@trefon.de).
+/// Contains function for status handling. Ported to C# in December 2018 from Stephan Trautvetter.
 /// Code is based on the origin project: https://github.com/PiSupply/PiJuice
 /// </summary>
 namespace PiJuice.Uwp.Core.Status
@@ -58,14 +58,40 @@ namespace PiJuice.Uwp.Core.Status
 
     #region Results
 
+    public class LedStateResult : ResultBase
+    {
+        public byte R { get; set; }
+        public byte G { get; set; }
+        public byte B { get; set; }
+
+        public LedStateResult() { }
+
+        public LedStateResult(byte[] data)
+        {
+            R = data[0];
+            G = data[1];
+            B = data[2];
+        }
+
+        public byte[] ToArray()
+        {
+            return new byte[] { R, G, B };
+        }
+
+        public override string ToString()
+        {
+            return $"R={R} G={G} B={B}";
+        }
+    }
+
     public class StatusResult
     {
         public bool Success { get; set; }
-        public bool IsFault { get; private set; }
-        public bool IsButton { get; private set; }
-        public BatteryStates Battery { get; private set; }
-        public PowerInStates PowerInput { get; private set; }
-        public PowerInStates PowerInput5vIo { get; private set; }
+        public bool IsFault { get; set; }
+        public bool IsButton { get; set; }
+        public BatteryStates Battery { get; set; }
+        public PowerInStates PowerInput { get; set; }
+        public PowerInStates PowerInput5vIo { get; set; }
 
         public StatusResult() { }
 
@@ -346,6 +372,45 @@ namespace PiJuice.Uwp.Core.Status
                 return new StatusDoubleResult() { Success = false };
             }
         }
+
+        #region LEDs
+
+        public async Task<LedStateResult> GetLedState(byte index)
+        {
+            try
+            {
+                var ires = await _Interface.ReadData(PiJuiceStatusCommands.LED_STATE_CMD + index, 3);
+
+                if (!ires.Success)
+                    return new LedStateResult();
+
+                return new LedStateResult(ires.Response) { Success = true };
+            }
+            catch (Exception ex)
+            {
+                return new LedStateResult(); ;
+            }
+        }
+
+        public async Task<bool> SetLedState(byte index, byte r, byte g, byte b)
+        {
+            try
+            {
+                var data = new byte[] { r, g, b };
+                var ires = await _Interface.WriteData((byte)(PiJuiceStatusCommands.LED_STATE_CMD + index), data);
+
+                if (!ires.Success)
+                    return false;
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return false;
+            }
+        }
+
+        #endregion
 
     }
 }
