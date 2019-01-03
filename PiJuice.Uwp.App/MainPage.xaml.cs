@@ -1,4 +1,6 @@
-﻿using PiJuice.Uwp.Core.Interface;
+﻿using PiJuice.Uwp.Core.Config;
+using PiJuice.Uwp.Core.Interface;
+using PiJuice.Uwp.Core.Power;
 using PiJuice.Uwp.Core.Status;
 using System;
 using System.Collections.Generic;
@@ -7,6 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices.WindowsRuntime;
+using System.Threading.Tasks;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
 using Windows.UI.Xaml;
@@ -16,6 +19,8 @@ using Windows.UI.Xaml.Data;
 using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
+using Windows.System;
+using System.Diagnostics;
 
 // Die Elementvorlage "Leere Seite" wird unter https://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x407 dokumentiert.
 
@@ -32,6 +37,10 @@ namespace PiJuice.Uwp.App
         private DispatcherTimer _Timer = null;
         private PiJuiceInterface _PiJuiceInterface = null;
         private PiJuiceStatus _PiJuiceStatus = null;
+        private PiJuicePower _PiJuicePower = null;
+        private PiJuiceConfig _PiJuiceConfig = null;
+
+        private bool _FlagWakeUpOnCharge = false;
 
         public void OnPropertyChanged([CallerMemberName] string propertyName = "")
         {
@@ -40,11 +49,15 @@ namespace PiJuice.Uwp.App
 
         public MainPage()
         {
+            bool _FirstRoundPassed = false;
+
             this.InitializeComponent();
             this.DataContext = this;
 
             _PiJuiceInterface = new PiJuiceInterface();
             _PiJuiceStatus = new PiJuiceStatus(_PiJuiceInterface);
+            _PiJuicePower = new PiJuicePower(_PiJuiceInterface);
+            _PiJuiceConfig = new PiJuiceConfig(_PiJuiceInterface);
 
             _Timer = new DispatcherTimer();
             _Timer.Interval = TimeSpan.FromSeconds(1);
@@ -70,6 +83,8 @@ namespace PiJuice.Uwp.App
                 var bsr = await _PiJuiceStatus.GetStatus();
                 if (bsr.Success)
                 {
+                    ShutdownButton.IsEnabled = bsr.PowerInput5vIo == PowerInStates.NOT_PRESENT && bsr.PowerInput == PowerInStates.NOT_PRESENT;
+
                     BatteryStatusText = bsr.Battery.ToString(); 
 
                     PowerInputGpioStatusText = bsr.PowerInput5vIo.ToString();
@@ -122,24 +137,82 @@ namespace PiJuice.Uwp.App
                 else
                     BatteryText = $"{BatteryChargeLevelText} | {BatteryVoltageText}  | {BatteryCurrentText} | {BatteryTempText} | {BatteryStatusText}";
 
-                if (bsr.PowerInput5vIo != PowerInStates.NOT_PRESENT)
+                //if (bsr.PowerInput5vIo != PowerInStates.NOT_PRESENT)
                     PowerInputGpioText = $"{PowerInputGpioVoltageText} | {PowerInputGpioCurrentText} | {PowerInputGpioStatusText}";
-                else
-                    PowerInputGpioText = bsr.PowerInput5vIo.ToString();
+                //else
+                //    PowerInputGpioText = bsr.PowerInput5vIo.ToString();
 
                 if (bsr.PowerInput != PowerInStates.NOT_PRESENT)
                     PowerInputUsbText = $"{PowerInputUsbVoltage} | {PowerInputUsbCurrent} | {PowerInputUsbStatus}";
                 else
                     PowerInputUsbText = bsr.PowerInput.ToString();
 
-                // read fault status
-                var fr = await _PiJuiceStatus.GetFaultStatus();
-                if (fr.Success)
-                {
-                    FaultText = fr.ToString();
-                }
+                //// read fault status
+                //var fr = await _PiJuiceStatus.GetFaultStatus();
+                //if (fr.Success)
+                //{
+                //    if (bsr.IsFault)
+                //        FaultText = fr.ToString();
+                //    else
+                //        FaultText = "-";
+                //}
+                //else
+                //    FaultText = "?";
+
+                //// read LED-0 status
+                //var led0 = await _PiJuiceStatus.GetLedState(0);
+                //if (led0.Success)
+                //    LedText0 = led0.ToString();
+                //else
+                //    LedText0 = "?";
+
+                //// read LED-1 status
+                //var led1 = await _PiJuiceStatus.GetLedState(1);
+                //if (led1.Success)
+                //    LedText1 = led1.ToString();
+                //else
+                //    LedText1 = "?";
+
+                ////// set LED-1 status
+                //await _PiJuiceStatus.SetLedState(1, (byte)(0), (byte)(0), (byte)(0));
+
+                // config WakeUpOnCharge
+
+                var wur = await _PiJuicePower.GetWakeUpOnCharge();
+                if (wur.Success)
+                    WakeUpOnChargeText = $"{wur.Value}%";
                 else
-                    FaultText = "?";
+                    WakeUpOnChargeText = "?";
+
+                if (!_FlagWakeUpOnCharge && wur.Success)
+                {
+                    byte level = 0;
+
+                    if (wur.Value != level)
+                    {
+                        // set to level
+                        var swr = await _PiJuicePower.SetWakeUpOnCharge(level);
+                        if (swr)
+                            _FlagWakeUpOnCharge = true;
+                    }
+                }
+                
+                if (!_FirstRoundPassed)
+                {
+                    var fwr = await _PiJuiceConfig.GetFirmwareVersion();
+                    if (fwr.Success)
+                        FirmwareText = fwr.Version.ToString();
+                    else
+                        FirmwareText = "?";
+
+                    _FirstRoundPassed = true;
+                }
+
+                //var wur = await _PiJuicePower.GetWakeUpOnCharge();
+                //if (wur.Success)
+                //    WakeUpOnChargeText = $"{wur.Value}%";
+                //else
+                //    WakeUpOnChargeText = "?";
 
             };
 
@@ -201,6 +274,103 @@ namespace PiJuice.Uwp.App
                 _FaultText = value;
                 OnPropertyChanged();
             }
+        }
+
+        private string _LedText0 = "";
+
+        public string LedText0
+        {
+            get { return _LedText0; }
+            set
+            {
+                if (_LedText0 == value)
+                    return;
+                _LedText0 = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private string _LedText1 = "";
+
+        public string LedText1
+        {
+            get { return _LedText1; }
+            set
+            {
+                if (_LedText1 == value)
+                    return;
+                _LedText1 = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private string _WakeUpOnChargeText = "";
+
+        public string WakeUpOnChargeText
+        {
+            get { return _WakeUpOnChargeText; }
+            set
+            {
+                if (_WakeUpOnChargeText == value)
+                    return;
+                _WakeUpOnChargeText = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private string _FirmwareText = "";
+
+        public string FirmwareText
+        {
+            get { return _FirmwareText; }
+            set
+            {
+                if (_FirmwareText == value)
+                    return;
+                _FirmwareText = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private async void ShutdownButton_Click(object sender, RoutedEventArgs e)
+        {
+
+            _Timer.Stop();
+
+            var res = await _PiJuicePower.SetSystemPowerSwitch(0);
+            if (!res)
+            {
+                FaultText = "Error: SetSystemPowerSwitch(0)";
+                return;
+            }
+
+            res = await _PiJuicePower.SetPowerOff(30);
+            if (!res)
+            {
+                FaultText = "Error: SetPowerOff(30)";
+                return;
+            }
+
+            await Task.Run(() =>
+            {
+                try
+                {
+                    // shut down or restart
+                    ShutdownManager.BeginShutdown(ShutdownKind.Shutdown, TimeSpan.FromSeconds(0));
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine(false, ex.Message);
+                    return;
+                }
+
+            });
+        }
+
+        private async void SystemPowerSwitchButton_Click(object sender, RoutedEventArgs e)
+        {
+            var res = await _PiJuicePower.GetSystemPowerSwitch();
+
         }
     }
 }
