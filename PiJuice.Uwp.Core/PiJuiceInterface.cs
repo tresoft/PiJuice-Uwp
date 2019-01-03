@@ -10,11 +10,21 @@ using System.Threading;
 using PiJuice.Uwp.Core.Power;
 
 /// <summary>
-/// Contains function for interface handling. Ported to C# in December 2018 from Stephan Trautvetter (st@trefon.de).
+/// Contains function for interface handling. Ported to C# in December 2018 from Stephan Trautvetter.
 /// Code is based on the origin project: https://github.com/PiSupply/PiJuice
 /// </summary>
 namespace PiJuice.Uwp.Core.Interface
 {
+    public class ResultBase
+    {
+        public bool Success { get; set; }
+
+        public ResultBase()
+        {
+            Success = false;
+        }
+    }
+
     public class PiJuiceInterfaceResult
     {
         public bool Success { get; set; }
@@ -32,6 +42,8 @@ namespace PiJuice.Uwp.Core.Interface
         private I2cBusSpeed _Speed;
         private I2cDevice _Device = null;
         private object _DeviceLock = new object();
+
+        public bool Shutdown { get; set; }
 
         public PiJuiceInterface(byte bus = 1, byte address = 0x14, I2cBusSpeed speed = I2cBusSpeed.FastMode)
         {
@@ -51,7 +63,7 @@ namespace PiJuice.Uwp.Core.Interface
 
         private async Task<bool> InitAsync()
         {
-            if (_Device == null)
+            if (_Device == null && !Shutdown)
             {
                 var controlerName = $"I2C{_Bus}";
                 var i2cSettings = new I2cConnectionSettings(_Address) { BusSpeed = _Speed };
@@ -68,12 +80,12 @@ namespace PiJuice.Uwp.Core.Interface
 
         public async Task<PiJuiceInterfaceResult> ReadData(PiJuiceStatusCommands cmd, byte lenght)
         {
-            return await ReadData((byte), lenght);
+            return await ReadData((byte) cmd, lenght);
         }
 
         public async Task<PiJuiceInterfaceResult> ReadData(PiJuicePowerCommands cmd, byte lenght)
         {
-            return await ReadData((byte), lenght);
+            return await ReadData((byte) cmd, lenght);
         }
 
         public async Task<PiJuiceInterfaceResult> ReadData(byte cmd, byte lenght)
@@ -81,6 +93,9 @@ namespace PiJuice.Uwp.Core.Interface
             PiJuiceInterfaceResult result = new PiJuiceInterfaceResult();
             int RetryCounter = 3;
             var StartTime = DateTime.Now;
+
+            if (Shutdown)
+                return result;
 
             try
             {
@@ -144,6 +159,9 @@ namespace PiJuice.Uwp.Core.Interface
             PiJuiceInterfaceResult result = new PiJuiceInterfaceResult();
             var StartTime = DateTime.Now;
 
+            if (Shutdown)
+                return result;
+
             try
             {
                 // init  device
@@ -152,18 +170,19 @@ namespace PiJuice.Uwp.Core.Interface
                     throw new Exception("Device initialisation error");
 
                 // create request
-
                 var buffer = new byte[data.Length + 2];
                 Array.Copy(data, 0, buffer, 1, data.Length);
                 buffer[0] = cmd;
-                buffer[buffer.Length - 1] = GetCheckSum(data);
+                buffer[buffer.Length - 1] = GetCheckSum(data, all: true);
                 result.Request = buffer.ToArray();
 
-                // send request and read response
+                // send request
                 lock (_DeviceLock)
                 {
                     // write
                     _Device.Write(result.Request);
+                    // wait to minimize errors
+                    Thread.Sleep(1);
                     // finish
                     result.Success = true;
                     return result;
@@ -182,38 +201,20 @@ namespace PiJuice.Uwp.Core.Interface
             }
         }
 
-        #region
+        #endregion
 
-        private byte GetCheckSum(byte[] data)
+        #region validate data
+
+        private byte GetCheckSum(byte[] data, bool all = false)
         {
-            var fcs = 0xff;
+            byte fcs = 0xff;
 
-            for (int i = 0; i < data.Length - 1; i++)
-                fcs = fcs ^ data[i];
+            for (int i = 0; i < data.Length - (all ? 0 : 1); i++)
+                fcs = (byte)(fcs ^ data[i]);
 
-            return (byte)(fcs & 0xff);
+            return fcs;
         }
 
-        //private async Task DoTransfer()
-        //{
-        //    var req = new byte[_Lenght];
-        //    var res = new byte[10];
-
-        //    req[0] = _Address;
-        //    req[1] = (byte) _Cmd;
-
-        //    if (_Data != null && _Data.Length > 0)
-        //        Array.Copy(_Data, 0, req, 0, _Data.Length);
-
-        //    // write request to device
-        //    lock (_DeviceLock)
-        //        _Device.Write(req);
-
-        //    // read response from device
-
-        //    lock(_DeviceLock)
-        //        _Device.Read()
-        //}
-
+        #endregion
     }
 }
