@@ -121,6 +121,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="PiJuiceInterface.cs" />
+    <Compile Include="PiJuiceConfig.cs" />
+    <Compile Include="PiJuicePower.cs" />
     <Compile Include="PiJuiceStatus.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Properties\PiJuice.Uwp.Core.rd.xml" />
