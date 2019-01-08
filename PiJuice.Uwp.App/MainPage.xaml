@@ -49,8 +49,8 @@
 
             <TextBlock Grid.Column="0" Grid.Row="6" Text="Fault:" />
             <TextBlock Grid.Column="1" Grid.Row="6" Text="{Binding Path=FaultText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
-            
-            <Button Grid.Column="1" Grid.Row="7" Content="Set Power Off" x:Name="ShutdownButton" Click="ShutdownButton_Click" Margin="0,30,0,0" IsEnabled="False" />
+
+            <Button Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="7" Content="Shutdown (WakeUpOnCharge+SystemPowerSwitch+PowerOff+Shutdown)" x:Name="ShutdownButton" Click="ShutdownButton_Click" Margin="0,30,0,0" IsEnabled="False" />
             
             
             <!--<Button Grid.Column="1" Grid.Row="7" Content="Get System Power Switch" x:Name="SystemPowerSwitchButton" Click="SystemPowerSwitchButton_Click" Margin="0,5,0,0" />-->
