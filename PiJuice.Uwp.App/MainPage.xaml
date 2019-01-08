@@ -23,7 +23,7 @@
                 <RowDefinition Height="30" />
                 <RowDefinition Height="30" />
                 <RowDefinition Height="30" />
-                <RowDefinition Height="Auto" />
+                <RowDefinition Height="30" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
@@ -37,16 +37,22 @@
             <TextBlock Grid.Column="0" Grid.Row="2" Text="USB Power:" />
             <TextBlock Grid.Column="1" Grid.Row="2" Text="{Binding Path=PowerInputUsbText, Mode=OneWay}" />
 
-            <TextBlock Grid.Column="0" Grid.Row="3" Text="WakeUpOnCharge:" />
-            <TextBlock Grid.Column="1" Grid.Row="3" Text="{Binding Path=WakeUpOnChargeText, Mode=OneWay}" />
+            <TextBlock Grid.Column="0" Grid.Row="4" Text="WakeUpOnCharge:" />
+            <TextBlock Grid.Column="1" Grid.Row="4" Text="{Binding Path=WakeUpOnChargeText, Mode=OneWay}" />
 
-            <TextBlock Grid.Column="0" Grid.Row="4" Text="Firmware:" />
-            <TextBlock Grid.Column="1" Grid.Row="4" Text="{Binding Path=FirmwareText, Mode=OneWay}" />
+            <TextBlock Grid.Column="0" Grid.Row="3" Text="Firmware:" />
+            <TextBlock Grid.Column="1" Grid.Row="3" Text="{Binding Path=FirmwareText, Mode=OneWay}" />
+
+            <TextBlock Grid.Column="0" Grid.Row="5" Text="ChargingConfig:" />
+            <!--<TextBlock Grid.Column="1" Grid.Row="5" Text="{Binding Path=ChargingText, Mode=OneWay}" />-->
+            <ToggleSwitch Grid.Column="1" Grid.Row="5" Name="ChargingConfigToggleSwitch" IsOn="{Binding ChargingEnabled, Mode=TwoWay,UpdateSourceTrigger=PropertyChanged}" Toggled="ChargingConfigToggleSwitch_Toggled"/>
+
+            <TextBlock Grid.Column="0" Grid.Row="6" Text="Fault:" />
+            <TextBlock Grid.Column="1" Grid.Row="6" Text="{Binding Path=FaultText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
             
-            <TextBlock Grid.Column="0" Grid.Row="5" Text="Fault:" />
-            <TextBlock Grid.Column="1" Grid.Row="5" Text="{Binding Path=FaultText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
+            <Button Grid.Column="1" Grid.Row="7" Content="Set Power Off" x:Name="ShutdownButton" Click="ShutdownButton_Click" Margin="0,30,0,0" IsEnabled="False" />
             
-            <Button Grid.Column="1" Grid.Row="6" Content="Set Power Off" x:Name="ShutdownButton" Click="ShutdownButton_Click" Margin="0,30,0,0" IsEnabled="False" />
+            
             <!--<Button Grid.Column="1" Grid.Row="7" Content="Get System Power Switch" x:Name="SystemPowerSwitchButton" Click="SystemPowerSwitchButton_Click" Margin="0,5,0,0" />-->
 
             <!--<TextBlock Grid.Column="0" Grid.Row="4" Text="LED-0:" />

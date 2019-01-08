@@ -147,6 +147,18 @@ namespace PiJuice.Uwp.App
                 else
                     PowerInputUsbText = bsr.PowerInput.ToString();
 
+                // read charging config
+                var ccr = await _PiJuiceConfig.GetChargingConfig();
+                if (ccr.Success)
+                {
+                    _ChargingEnabled = ccr.Enabled;
+                    OnPropertyChanged("ChargingEnabled");
+                }
+                else
+                {
+                    ChargingText = "?";
+                }
+
                 //// read fault status
                 //var fr = await _PiJuiceStatus.GetFaultStatus();
                 //if (fr.Success)
@@ -332,12 +344,56 @@ namespace PiJuice.Uwp.App
             }
         }
 
+        private string _ChargingText = "";
+
+        public string ChargingText
+        {
+            get { return _ChargingText; }
+            set
+            {
+                if (_ChargingText == value)
+                    return;
+                _ChargingText = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private bool _ChargingEnabled = false;
+
+        public bool ChargingEnabled
+        {
+            get { return _ChargingEnabled; }
+            set
+            {
+                if (_ChargingEnabled == value)
+                    return;
+
+                //_ChargingEnabled = value;
+
+                var t = _PiJuiceConfig.SetChargingConfig(new ChargingConfigResult() { Enabled = value, NonVolatile = true });
+                t.Wait();
+                if (t.Result)
+                {
+                    _ChargingEnabled = value;
+                }
+
+                OnPropertyChanged();
+            }
+        }
+        
         private async void ShutdownButton_Click(object sender, RoutedEventArgs e)
         {
 
             _Timer.Stop();
 
-            var res = await _PiJuicePower.SetSystemPowerSwitch(0);
+            var res = await _PiJuicePower.SetWakeUpOnCharge(0);
+            if (!res)
+            {
+                FaultText = "Error: SetWakeUpOnCharge(0)";
+                return;
+            }
+
+            res = await _PiJuicePower.SetSystemPowerSwitch(0);
             if (!res)
             {
                 FaultText = "Error: SetSystemPowerSwitch(0)";
@@ -370,6 +426,11 @@ namespace PiJuice.Uwp.App
         private async void SystemPowerSwitchButton_Click(object sender, RoutedEventArgs e)
         {
             var res = await _PiJuicePower.GetSystemPowerSwitch();
+
+        }
+
+        private void ChargingConfigToggleSwitch_Toggled(object sender, RoutedEventArgs e)
+        {
 
         }
     }

@@ -43,6 +43,33 @@ namespace PiJuice.Uwp.Core.Config
         public byte Format { get; set; }
     }
 
+    public class ChargingConfigResult : ResultBase
+    {
+        public bool Enabled{ get; set; }
+        public bool NonVolatile { get; set; }
+
+        public ChargingConfigResult() : base()
+        {
+            Success = false;
+        }
+
+        public ChargingConfigResult(byte[] data) : base()
+        {
+            Enabled = (data[0] & 0x01) == 0x01;
+            NonVolatile = (data[0] & 0x80) == 0x80;
+        }
+
+        public byte[] ToArray()
+        {
+            byte v = 0;
+            if (Enabled)
+                v |= 0x01;
+            if (NonVolatile)
+                v |= 0x80;
+            return new byte[] { v, 0 };
+        }
+    }
+    
     #endregion
 
     public class PiJuiceConfig
@@ -76,6 +103,36 @@ namespace PiJuice.Uwp.Core.Config
             catch (Exception ex)
             {
                 return new FirmwareResult();
+            }
+        }
+
+        public async Task<ChargingConfigResult> GetChargingConfig()
+        {
+            try
+            {
+                var ires = await _Interface.ReadData((byte)PiJuiceConfigCommands.CHARGING_CONFIG_CMD, 1);
+
+                if (!ires.Success)
+                    return new ChargingConfigResult();
+
+                return new ChargingConfigResult(ires.Response) { Success = true };
+            }
+            catch (Exception ex)
+            {
+                return new ChargingConfigResult();
+            }
+        }
+
+        public async Task<bool> SetChargingConfig(ChargingConfigResult config)
+        {
+            try
+            {
+                var ires = await _Interface.WriteData((byte)PiJuiceConfigCommands.CHARGING_CONFIG_CMD, config.ToArray());
+                return ires.Success;
+            }
+            catch (Exception ex)
+            {
+                return false;
             }
         }
 
