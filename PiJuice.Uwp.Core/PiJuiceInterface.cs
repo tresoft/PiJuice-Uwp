@@ -35,38 +35,44 @@ namespace PiJuice.Uwp.Core.Interface
         public int RetryCounter { get; set; }
     }
 
-    public class PiJuiceInterface: IDisposable
+    public class PiJuiceInterface : IDisposable
     {
         private byte _Bus;
         private byte _Address;
-        private I2cBusSpeed _Speed;
         private I2cDevice _Device = null;
         private object _DeviceLock = new object();
 
         public bool Shutdown { get; set; }
+        public int ReadRetryCounter { get; set; }
+        public int ReadRetryDelay { get; set; }
+        public I2cBusSpeed Speed { get; set; }
 
-        public PiJuiceInterface(byte bus = 1, byte address = 0x14, I2cBusSpeed speed = I2cBusSpeed.FastMode)
+        public PiJuiceInterface(byte bus = 1, byte address = 0x14)
         {
+            Speed = I2cBusSpeed.StandardMode;
+            Shutdown = false;
+            ReadRetryCounter = 3;
+            ReadRetryDelay = 5;
+
             _Bus = bus;
             _Address = address;
-            _Speed = speed;
         }
 
         public void Dispose()
         {
-            if (_Device!=null)
+            if (_Device != null)
             {
                 _Device.Dispose();
                 _Device = null;
             }
         }
 
-        private async Task<bool> InitAsync()
+        public async Task<bool> InitAsync()
         {
             if (_Device == null && !Shutdown)
             {
                 var controlerName = $"I2C{_Bus}";
-                var i2cSettings = new I2cConnectionSettings(_Address) { BusSpeed = _Speed };
+                var i2cSettings = new I2cConnectionSettings(_Address) { BusSpeed = Speed };
                 var deviceSelector = I2cDevice.GetDeviceSelector(controlerName);
                 var i2cDeviceControllers = await DeviceInformation.FindAllAsync(deviceSelector);
                 if (i2cDeviceControllers != null && i2cDeviceControllers.Any())
@@ -80,18 +86,17 @@ namespace PiJuice.Uwp.Core.Interface
 
         public async Task<PiJuiceInterfaceResult> ReadData(PiJuiceStatusCommands cmd, byte lenght)
         {
-            return await ReadData((byte) cmd, lenght);
+            return await ReadData((byte)cmd, lenght);
         }
 
         public async Task<PiJuiceInterfaceResult> ReadData(PiJuicePowerCommands cmd, byte lenght)
         {
-            return await ReadData((byte) cmd, lenght);
+            return await ReadData((byte)cmd, lenght);
         }
 
         public async Task<PiJuiceInterfaceResult> ReadData(byte cmd, byte lenght)
         {
             PiJuiceInterfaceResult result = new PiJuiceInterfaceResult();
-            int RetryCounter = 3;
             var StartTime = DateTime.Now;
 
             if (Shutdown)
@@ -105,34 +110,24 @@ namespace PiJuice.Uwp.Core.Interface
                     throw new Exception("Device initialisation error");
 
                 // do transfer
-                for (int i = 0; i < RetryCounter; i++)
+                for (int i = 0; i < ReadRetryCounter; i++)
                 {
                     // init
                     result.RetryCounter = i;
                     result.Request = new byte[] { (byte)cmd };
                     result.Response = new byte[lenght + 1];
-
                     // send request and read response
-                    lock (_DeviceLock)
+                    _Device.WriteRead(result.Request, result.Response);
+                    // calc checksum
+                    var cs = GetCheckSum(result.Response);
+                    if (cs == result.Response[lenght])
                     {
-                        // write
-                        _Device.Write(result.Request);
-                        // wait to minimize errors
-                        Thread.Sleep(1);
-                        // read
-                        _Device.Read(result.Response);
-                        // calc checksum
-                        var cs = GetCheckSum(result.Response);
-                        if (cs == result.Response[lenght])
-                        {
-                            // finish
-                            result.Success = true;
-                            return result;
-                        }
-
+                        // finish
+                        result.Success = true;
+                        return result;
                     }
 
-                    await Task.Delay(10);
+                    await Task.Delay(ReadRetryDelay);
                 }
 
                 result.Success = false;
@@ -175,19 +170,11 @@ namespace PiJuice.Uwp.Core.Interface
                 buffer[0] = cmd;
                 buffer[buffer.Length - 1] = GetCheckSum(data, all: true);
                 result.Request = buffer.ToArray();
-
-                // send request
-                lock (_DeviceLock)
-                {
-                    // write
-                    _Device.Write(result.Request);
-                    // wait to minimize errors
-                    Thread.Sleep(1);
-                    // finish
-                    result.Success = true;
-                    return result;
-                }
-
+                // write
+                _Device.Write(result.Request);
+                // finish
+                result.Success = true;
+                return result;
             }
             catch (Exception ex)
             {
